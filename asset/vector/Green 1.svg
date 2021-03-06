@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="120px" height="120px" viewBox="0 0 120 120" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Green 1</title>
+    <defs>
+        <circle id="path-1" cx="50" cy="50" r="50"></circle>
+    </defs>
+    <g id="Green-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group" transform="translate(9.000000, 9.000000)">
+            <circle id="Oval-Copy" fill="#49634D" fill-rule="nonzero" cx="52" cy="52" r="50"></circle>
+            <mask id="mask-2" fill="white">
+                <use xlink:href="#path-1"></use>
+            </mask>
+            <use id="Oval" fill="#78AE81" fill-rule="nonzero" xlink:href="#path-1"></use>
+            <polygon id="Line" fill="#9ECBA5" fill-rule="nonzero" mask="url(#mask-2)" points="19 1 19 102 13 102 13 1"></polygon>
+            <polygon id="Line" fill="#9ECBA5" fill-rule="nonzero" mask="url(#mask-2)" points="35 -2 35 111 27 111 27 -2"></polygon>
+        </g>
+    </g>
+</svg>

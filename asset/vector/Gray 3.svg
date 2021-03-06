@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="120px" height="120px" viewBox="0 0 120 120" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Gray 3</title>
+    <g id="Gray-3" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group" transform="translate(10.000000, 10.000000)" fill-rule="nonzero">
+            <circle id="Oval" fill="#B9B9B9" cx="50" cy="50" r="50"></circle>
+            <path d="M71,48.5 C72.1045695,48.5 73,49.3954305 73,50.5 C73,51.5543618 72.1841222,52.4181651 71.1492623,52.4945143 L71,52.5 L31,52.5 C29.8954305,52.5 29,51.6045695 29,50.5 C29,49.4456382 29.8158778,48.5818349 30.8507377,48.5054857 L31,48.5 L71,48.5 Z" id="Line" fill="#969693"></path>
+        </g>
+    </g>
+</svg>

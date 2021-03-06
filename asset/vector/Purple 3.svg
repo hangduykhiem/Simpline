@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="120px" height="120px" viewBox="0 0 120 120" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Purple 3</title>
+    <defs>
+        <circle id="path-1" cx="50" cy="50" r="50"></circle>
+    </defs>
+    <g id="Purple-3" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group" transform="translate(10.000000, 10.000000)">
+            <circle id="Oval-Copy" fill="#9E81D6" fill-rule="nonzero" cx="50" cy="50" r="50"></circle>
+            <mask id="mask-2" fill="white">
+                <use xlink:href="#path-1"></use>
+            </mask>
+            <use id="Oval" fill="#8F79BC" fill-rule="nonzero" xlink:href="#path-1"></use>
+            <path d="M50,58 L49.6987934,57.9351711 C44.2971622,56.7260462 40,53.238605 40,47.5984175 C40,41.8537821 45.6717181,39.5421396 50,45.4574903 L50,45.456 L50.1589384,45.2447369 C54.465773,39.5990316 60,41.9238387 60,47.5984175 C60,53.238605 55.7028378,56.7260462 50.3012066,57.9351711 L50,58 L50,58 L50,58 Z" id="Combined-Shape" fill="#DBD0F1" fill-rule="nonzero" opacity="0.5" style="mix-blend-mode: overlay;" mask="url(#mask-2)"></path>
+        </g>
+    </g>
+</svg>

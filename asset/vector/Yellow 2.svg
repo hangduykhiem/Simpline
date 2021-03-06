@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="120px" height="120px" viewBox="0 0 120 120" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Yellow 2</title>
+    <defs>
+        <circle id="path-1" cx="50" cy="50" r="50"></circle>
+    </defs>
+    <g id="Yellow-2" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group" transform="translate(9.000000, 9.000000)">
+            <circle id="Oval-Copy" fill="#988664" fill-rule="nonzero" cx="52" cy="52" r="50"></circle>
+            <mask id="mask-2" fill="white">
+                <use xlink:href="#path-1"></use>
+            </mask>
+            <use id="Mask" fill="#E8D1A6" fill-rule="nonzero" xlink:href="#path-1"></use>
+            <path d="M50.5,8 C73.9721019,8 93,27.0278981 93,50.5 C93,73.9721019 73.9721019,93 50.5,93 C27.0278981,93 8,73.9721019 8,50.5 C8,27.0278981 27.0278981,8 50.5,8 Z M50.5,14 C30.3416066,14 14,30.3416066 14,50.5 C14,70.6583934 30.3416066,87 50.5,87 C70.6583934,87 87,70.6583934 87,50.5 C87,30.3416066 70.6583934,14 50.5,14 Z" id="Oval-Copy" fill="#EFD8AC" fill-rule="nonzero" mask="url(#mask-2)"></path>
+        </g>
+    </g>
+</svg>

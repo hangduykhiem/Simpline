@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="120px" height="120px" viewBox="0 0 120 120" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Purple 1</title>
+    <g id="Purple-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Group" transform="translate(9.000000, 9.000000)" fill-rule="nonzero">
+            <circle id="Oval-Copy" fill="#524C5E" cx="52" cy="52" r="50"></circle>
+            <circle id="Oval" fill="#9982C8" cx="50" cy="50" r="50"></circle>
+            <path d="M51,60 L50.7041525,59.9284162 C45.3000047,58.5693965 41,54.6455289 41,48.2982197 C41,41.8355049 46.6717181,39.234907 51,45.8896765 L51,45.888 L51.1480652,45.666387 C55.4564522,39.2945102 61,41.9089448 61,48.2982197 C61,54.6455289 56.6999953,58.5693965 51.2958475,59.9284162 L51,60 L51,60 L51,60 Z" id="Combined-Shape" fill="#DBD0F1" opacity="0.5" style="mix-blend-mode: overlay;"></path>
+        </g>
+    </g>
+</svg>
