@@ -61,6 +61,4 @@ func _simplify_astar_path(path):
         i += 1
 
     result.append(path[path.size() -1])
-    print("Origin Path: ", path)
-    print("Result Path: ", result)
     return result

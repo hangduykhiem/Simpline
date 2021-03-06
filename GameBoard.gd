@@ -7,11 +7,11 @@ var MARGIN_VERTICAL = (600 - LINE_LENGTH) / 2 # Screen height = 600
 var MARGIN_HORIZONTAL = (1024 - LINE_LENGTH) / 2
 
 
-var PathFinder = load("PathFinder.gd")
+var GameLogic = load("GameLogic.gd")
 var Ball = preload("Ball.tscn")
 
 var _rng = RandomNumberGenerator.new()
-var _pf = PathFinder.new()
+var _gl = GameLogic.new()
 
 var _moving = false
 var _ball_grid = []
@@ -21,8 +21,8 @@ var _next_ball = {}
 
 func _ready():
     _rng.randomize()
-    _pf.grid_size = GRID_NUMBER
-    _pf.generate_grid()
+    _gl.grid_size = GRID_NUMBER
+    _gl.generate_grid()
     _init_ball_array()
     _init_balls()
     $Grid.position = Vector2(1024 / 2 , 600 /2 )
@@ -64,7 +64,7 @@ func _init_balls():
             x = _rng.randi_range(0,8)
             y = _rng.randi_range(0,8)
 
-        var color = _rng.randi_range(0,6)
+        var color = _rng.randi_range(0,0)
         var ball = Ball.instance()
         ball.color = color
         ball.position = _calculate_center_position(x, y)
@@ -74,22 +74,23 @@ func _init_balls():
         $Tween.start()
         add_child(ball)
         _ball_grid[x][y] = ball
-        _pf.set_position_disabled(x, y, true)
+        _gl.set_position_disabled(x, y, true)
     yield($Tween, "tween_all_completed")
     _get_next_balls()
 
 
 func _get_next_balls():
-     _next_ball.clear()
-     for _i in range(3):
+    _moving = true
+    _next_ball.clear()
+    for _i in range(3):
         var x = _rng.randi_range(0,8)
         var y = _rng.randi_range(0,8)
 
-        while (_ball_grid[x][y] != null):
+        while _ball_grid[x][y] != null && !(Vector2(x,y) in _next_ball.keys()):
             x = _rng.randi_range(0,8)
             y = _rng.randi_range(0,8)
 
-        var color = _rng.randi_range(0,6)
+        var color = _rng.randi_range(0,0)
         var ball = Ball.instance()
         ball.color = color
         ball.position = _calculate_center_position(x, y)
@@ -100,17 +101,19 @@ func _get_next_balls():
         add_child_below_node($Grid, ball)
         $Tween.start()
         _next_ball[Vector2(x, y)] = ball
+    yield($Tween, "tween_all_completed")
+    _moving = false
 
 func _move_selected_ball(pos):
     _moving = true
     var ball = _ball_grid[_current_selected_pos.x][_current_selected_pos.y]
     var from_pos = Vector2(_current_selected_pos.x, _current_selected_pos.y)
-    var path = _pf.find_path(from_pos, pos)
+    var path = _gl.find_path(from_pos, pos)
     if (path != null):
         _ball_grid[from_pos.x][from_pos.y] = null
         _ball_grid[pos.x][pos.y] = ball
-        _pf.set_position_disabled(from_pos.x, from_pos.y, false)
-        _pf.set_position_disabled(pos.x, pos.y, true)
+        _gl.set_position_disabled(from_pos.x, from_pos.y, false)
+        _gl.set_position_disabled(pos.x, pos.y, true)
         _animate_movement(path, ball)
     else:
         _moving = false
@@ -132,13 +135,13 @@ func _animate_movement(path, ball):
 
 
 func _on_animation_end(ball, pos):
-    _check_score(ball, pos)
+    _check_score(ball, pos, true)
     $Tween.disconnect("tween_all_completed", self, "_on_animation_end")
     pass
 
 
 # TODO: Move this to another script like PathFinder
-func _check_score(ball, pos):
+func _check_score(ball, pos, animate_next):
     var color = ball.color
 
     # These variable store the ball rows, in order.
@@ -179,8 +182,10 @@ func _check_score(ball, pos):
             result.erase(ball) #Ball can be duplicated, so erase them, and add.
         result.append(ball)
 
-    print(result)
-    _animate_clear_or_new_ball(result)
+    if (animate_next && result.size() == 0):
+        _animate_new_ball()
+    else:
+        _animate_clear(result)
 
 
 func _check_row_for_score(row, color):
@@ -204,41 +209,49 @@ func _check_row_for_score(row, color):
     return lines
 
 
-func _animate_clear_or_new_ball(result):
-    if (result.size() == 0):
-        for key in _next_ball.keys():
-            var pos = key
-            var ball = _next_ball[key]
+func _animate_clear(result):
+    for ball_pos in result:
+        var ball = _ball_grid[ball_pos.x][ball_pos.y]
+        $Tween.interpolate_property(ball, "scale:x", 1, 0, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+        $Tween.interpolate_property(ball, "scale:y", 1, 0, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+    $Tween.start()
 
-            while (_ball_grid[pos.x][pos.y] != null):
-                var x = _rng.randi_range(0,8)
-                var y = _rng.randi_range(0,8)
-                pos = Vector2(x,y)
-
-            ball.position = _calculate_center_position(pos.x, pos.y)
-            _ball_grid[pos.x][pos.y] = ball
-            _pf.set_position_disabled(pos.x, pos.y, true)
-            $Tween.interpolate_property(ball, "scale:x", .5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-            $Tween.interpolate_property(ball, "scale:y", .5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-
-        $Tween.start()
-        yield($Tween, "tween_all_completed")
-        _get_next_balls()
-
-    else:
-        for ball_pos in result:
-            var ball = _ball_grid[ball_pos.x][ball_pos.y]
-            $Tween.interpolate_property(ball, "scale:x", 1, 0, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-            $Tween.interpolate_property(ball, "scale:y", 1, 0, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-        $Tween.start()
-
-        yield($Tween, "tween_all_completed")
-        for ball_pos in result:
-            var ball = _ball_grid[ball_pos.x][ball_pos.y]
+    yield($Tween, "tween_all_completed")
+    for ball_pos in result:
+        var ball = _ball_grid[ball_pos.x][ball_pos.y]
+        if (ball != null):
             _ball_grid[ball_pos.x][ball_pos.y] = null
             ball.queue_free()
-            _pf.set_position_disabled(ball_pos.x, ball_pos.y, false)
+            _gl.set_position_disabled(ball_pos.x, ball_pos.y, false)
     _moving = false
+
+func _animate_new_ball():
+    var new_pos = []
+    for key in _next_ball.keys():
+        var pos = key
+        var ball = _next_ball[key]
+
+        while (_ball_grid[pos.x][pos.y] != null):
+            var x = _rng.randi_range(0,8)
+            var y = _rng.randi_range(0,8)
+            pos = Vector2(x,y)
+
+        ball.position = _calculate_center_position(pos.x, pos.y)
+        _ball_grid[pos.x][pos.y] = ball
+        new_pos.append(pos)
+        _gl.set_position_disabled(pos.x, pos.y, true)
+        $Tween.interpolate_property(ball, "scale:x", .5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+        $Tween.interpolate_property(ball, "scale:y", .5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+
+    $Tween.start()
+    yield($Tween, "tween_all_completed")
+
+    for pos in new_pos:
+        var ball = _ball_grid[pos.x][pos.y]
+        if (ball != null): #Can be null since two new ball can clear same row
+            _check_score(ball, pos, false)
+    _moving = false
+    _get_next_balls()
 
 
 func _calculate_center_position(x, y):
