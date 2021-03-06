@@ -12,10 +12,11 @@ var Ball = preload("Ball.tscn")
 
 var _rng = RandomNumberGenerator.new()
 var _pf = PathFinder.new()
-var _moving = false
 
+var _moving = false
 var _ball_grid = []
 var _current_selected_pos
+var _next_ball = {}
 
 
 func _ready():
@@ -74,7 +75,31 @@ func _init_balls():
         add_child(ball)
         _ball_grid[x][y] = ball
         _pf.set_position_disabled(x, y, true)
+    yield($Tween, "tween_all_completed")
+    _get_next_balls()
 
+
+func _get_next_balls():
+     _next_ball.clear()
+     for _i in range(3):
+        var x = _rng.randi_range(0,8)
+        var y = _rng.randi_range(0,8)
+
+        while (_ball_grid[x][y] != null):
+            x = _rng.randi_range(0,8)
+            y = _rng.randi_range(0,8)
+
+        var color = _rng.randi_range(0,6)
+        var ball = Ball.instance()
+        ball.color = color
+        ball.position = _calculate_center_position(x, y)
+        ball.scale = Vector2(0,0)
+
+        $Tween.interpolate_property(ball, "scale:x", 0, .5, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+        $Tween.interpolate_property(ball, "scale:y", 0, .5, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+        add_child_below_node($Grid, ball)
+        $Tween.start()
+        _next_ball[Vector2(x, y)] = ball
 
 func _move_selected_ball(pos):
     _moving = true
@@ -87,7 +112,8 @@ func _move_selected_ball(pos):
         _pf.set_position_disabled(from_pos.x, from_pos.y, false)
         _pf.set_position_disabled(pos.x, pos.y, true)
         _animate_movement(path, ball)
-
+    else:
+        _moving = false
 
 func _animate_movement(path, ball):
     var i = 1
@@ -142,9 +168,6 @@ func _check_score(ball, pos):
         if (bottom_top_start.x + i < 9 && bottom_top_start.y - i >= 0):
             bottom_top.append(Vector2(bottom_top_start.x + i, bottom_top_start.y - i))
 
-    var first_color_index = -1
-    var last_color_index = -1
-
     var result = []
     result = result + _check_row_for_score(row, color)
     result = result + _check_row_for_score(column, color)
@@ -183,26 +206,24 @@ func _check_row_for_score(row, color):
 
 func _animate_clear_or_new_ball(result):
     if (result.size() == 0):
-        for _i in range(3):
-            var x = _rng.randi_range(0,8)
-            var y = _rng.randi_range(0,8)
+        for key in _next_ball.keys():
+            var pos = key
+            var ball = _next_ball[key]
 
-            while (_ball_grid[x][y] != null):
-                x = _rng.randi_range(0,8)
-                y = _rng.randi_range(0,8)
+            while (_ball_grid[pos.x][pos.y] != null):
+                var x = _rng.randi_range(0,8)
+                var y = _rng.randi_range(0,8)
+                pos = Vector2(x,y)
 
-            var color = _rng.randi_range(0,6)
-            var ball = Ball.instance()
-            ball.color = color
-            ball.position = _calculate_center_position(x, y)
-            ball.scale = Vector2(0,0)
-            add_child(ball)
-            $Tween.interpolate_property(ball, "scale:x", 0, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-            $Tween.interpolate_property(ball, "scale:y", 0, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-            _ball_grid[x][y] = ball
-            _pf.set_position_disabled(x, y, true)
+            ball.position = _calculate_center_position(pos.x, pos.y)
+            _ball_grid[pos.x][pos.y] = ball
+            _pf.set_position_disabled(pos.x, pos.y, true)
+            $Tween.interpolate_property(ball, "scale:x", .5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+            $Tween.interpolate_property(ball, "scale:y", .5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+
         $Tween.start()
         yield($Tween, "tween_all_completed")
+        _get_next_balls()
 
     else:
         for ball_pos in result:

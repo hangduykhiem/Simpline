@@ -36,3 +36,4 @@ func toggle_selected():
     elif (!_selected):
         $AnimationPlayer.stop()
         $Sprite.rotation_degrees = 0
+        $Sprite.scale = Vector2(1,1)
