@@ -64,7 +64,7 @@ func _init_balls():
             x = _rng.randi_range(0,8)
             y = _rng.randi_range(0,8)
 
-        var color = _rng.randi_range(0,0)
+        var color = _rng.randi_range(0,6)
         var ball = Ball.instance()
         ball.color = color
         ball.position = _calculate_center_position(x, y)
@@ -90,7 +90,7 @@ func _get_next_balls():
             x = _rng.randi_range(0,8)
             y = _rng.randi_range(0,8)
 
-        var color = _rng.randi_range(0,0)
+        var color = _rng.randi_range(0,6)
         var ball = Ball.instance()
         ball.color = color
         ball.position = _calculate_center_position(x, y)
