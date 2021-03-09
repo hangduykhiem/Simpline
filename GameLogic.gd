@@ -8,10 +8,9 @@ var _ball_grid = []
 
 func generate_grid():
     for i in range(grid_size):
-        _ball_grid.append([])
         for j in range(grid_size):
-            _ball_grid[i].append(null)
             _astar.add_point(i * grid_size + j, Vector2(i,j))
+            _ball_grid.append(null)
     for i in range(grid_size):
         for j in range(grid_size):
             var current_point = i * grid_size + j
@@ -24,37 +23,41 @@ func generate_grid():
 
 
 func put_ball(pos, ball):
-    if (_ball_grid[pos.x][pos.y] == null):
-        _ball_grid[pos.x][pos.y] = ball
-        _astar.set_point_disabled(_get_id_from_pos(pos.x, pos.y), true)
+    var id = _get_id_from_pos(pos.x, pos.y)
+    if (_ball_grid[id] == null):
+        _ball_grid[id] = ball
+        _astar.set_point_disabled(id, true)
     else:
         push_error("There is already another ball in that position")
 
 
 func has_ball(pos):
-    return _ball_grid[pos.x][pos.y] != null
+    return _ball_grid[_get_id_from_pos(pos.x, pos.y)] != null
 
 
 func move_ball(pos, new_pos):
-    if (_ball_grid[pos.x][pos.y] == null):
+    var id = _get_id_from_pos(pos.x, pos.y)
+    var new_id = _get_id_from_pos(new_pos.x, new_pos.y)
+    if (_ball_grid[id] == null):
         push_error("There is no ball at position:  %s" % pos)
-    if (_ball_grid[new_pos.x][new_pos.y] != null):
+    if (_ball_grid[new_id] != null):
         push_error("There is already another ball in that position")
-    _ball_grid[new_pos.x][new_pos.y] = _ball_grid[pos.x][pos.y]
-    _ball_grid[pos.x][pos.y] = null
-    _astar.set_point_disabled(_get_id_from_pos(pos.x, pos.y), false)
-    _astar.set_point_disabled(_get_id_from_pos(new_pos.x, new_pos.y), true)
+    _ball_grid[new_id] = _ball_grid[id]
+    _ball_grid[id] = null
+    _astar.set_point_disabled(id, false)
+    _astar.set_point_disabled(new_id, true)
 
 
 func remove_ball(pos):
-    var ball = _ball_grid[pos.x][pos.y]
-    _ball_grid[pos.x][pos.y] = null
+    var id = _get_id_from_pos(pos.x, pos.y)
+    var ball = _ball_grid[id]
+    _ball_grid[id] = null
     ball.queue_free()
-    _astar.set_point_disabled(_get_id_from_pos(pos.x, pos.y), false)
+    _astar.set_point_disabled(id, false)
 
 
 func get_ball(pos):
-    return _ball_grid[pos.x][pos.y]
+    return _ball_grid[_get_id_from_pos(pos.x, pos.y)]
 
 
 func find_path(from_pos, to_pos):
@@ -101,10 +104,10 @@ func check_score(ball, pos):
     result = result + _check_row_for_score(top_bottom, color)
     result = result + _check_row_for_score(bottom_top, color)
 
-    if (ball in result):
-        while (ball in result):
-            result.erase(ball) #Ball can be duplicated, so erase them, and add.
-        result.append(ball)
+    if (pos in result):
+        while (pos in result):
+            result.erase(pos) #Ball can be duplicated, so erase them, and add.
+        result.append(pos)
     return result
 
 
@@ -113,7 +116,8 @@ func _check_row_for_score(row, color):
     var last_color_index = -1
     var first_color_index = -1
     for i in row.size():
-        var ball = _ball_grid[row[i].x][row[i].y]
+        var id = _get_id_from_pos(row[i].x, row[i].y)
+        var ball = _ball_grid[id]
         if ball != null && ball.color == color:
             last_color_index = i
             if first_color_index == -1:
