@@ -14,7 +14,6 @@ var _rng = RandomNumberGenerator.new()
 var _gl = GameLogic.new()
 
 var _moving = false
-var _ball_grid = []
 var _current_selected_pos
 var _next_ball = {}
 
@@ -23,7 +22,6 @@ func _ready():
     _rng.randomize()
     _gl.grid_size = GRID_NUMBER
     _gl.generate_grid()
-    _init_ball_array()
     _init_balls()
     $Grid.position = Vector2(1024 / 2 , 600 /2 )
 
@@ -32,12 +30,12 @@ func _input(event):
     if event is InputEventMouseButton && event.pressed && !_moving:
         var pos = _calculate_click_position(event.position)
         if (pos != null):
-            var ball = _ball_grid[pos.x][pos.y]
+            var ball = _gl.get_ball(pos)
 
             if (_current_selected_pos != null):
                 var cur_x = _current_selected_pos.x
                 var cur_y = _current_selected_pos.y
-                _ball_grid[cur_x][cur_y].toggle_selected()
+                _gl.get_ball(Vector2(cur_x, cur_y)).toggle_selected()
                 if (ball == null):
                     _move_selected_ball(Vector2(pos.x, pos.y))
 
@@ -48,19 +46,12 @@ func _input(event):
                 _current_selected_pos = null
 
 
-func _init_ball_array():
-    for i in range(GRID_NUMBER):
-        _ball_grid.append([])
-        for _j in range(GRID_NUMBER):
-            _ball_grid[i].append(null)
-
-
 func _init_balls():
     for _i in range(7):
         var x = _rng.randi_range(0,8)
         var y = _rng.randi_range(0,8)
 
-        while (_ball_grid[x][y] != null):
+        while (_gl.has_ball(Vector2(x,y))):
             x = _rng.randi_range(0,8)
             y = _rng.randi_range(0,8)
 
@@ -73,8 +64,7 @@ func _init_balls():
         $Tween.interpolate_property(ball, "scale:y", 0, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
         $Tween.start()
         add_child(ball)
-        _ball_grid[x][y] = ball
-        _gl.set_position_disabled(x, y, true)
+        _gl.put_ball(Vector2(x,y), ball)
     yield($Tween, "tween_all_completed")
     _get_next_balls()
 
@@ -82,11 +72,11 @@ func _init_balls():
 func _get_next_balls():
     _moving = true
     _next_ball.clear()
-    for _i in range(3):
+    while(_next_ball.size() < 3):
         var x = _rng.randi_range(0,8)
         var y = _rng.randi_range(0,8)
 
-        while _ball_grid[x][y] != null || (Vector2(x,y) in _next_ball.keys()):
+        while _gl.has_ball(Vector2(x,y)) || _next_ball.has(Vector2(x,y)):
             x = _rng.randi_range(0,8)
             y = _rng.randi_range(0,8)
 
@@ -95,26 +85,23 @@ func _get_next_balls():
         ball.color = color
         ball.position = _calculate_center_position(x, y)
         ball.scale = Vector2(0,0)
-
+        add_child_below_node($Grid, ball)
+        _next_ball[Vector2(x, y)] = ball
         $Tween.interpolate_property(ball, "scale:x", 0, .5, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
         $Tween.interpolate_property(ball, "scale:y", 0, .5, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-        add_child_below_node($Grid, ball)
-        $Tween.start()
-        _next_ball[Vector2(x, y)] = ball
+
+    $Tween.start()
     yield($Tween, "tween_all_completed")
     _moving = false
 
 func _move_selected_ball(pos):
     _moving = true
-    var ball = _ball_grid[_current_selected_pos.x][_current_selected_pos.y]
     var from_pos = Vector2(_current_selected_pos.x, _current_selected_pos.y)
+    var ball = _gl.get_ball(from_pos)
     var path = _gl.find_path(from_pos, pos)
     if (path != null):
-        _ball_grid[from_pos.x][from_pos.y] = null
-        _ball_grid[pos.x][pos.y] = ball
-        _gl.set_position_disabled(from_pos.x, from_pos.y, false)
-        _gl.set_position_disabled(pos.x, pos.y, true)
         _animate_movement(path, ball)
+
     else:
         _moving = false
 
@@ -131,98 +118,27 @@ func _animate_movement(path, ball):
         i += 1
     $Tween.interpolate_property(ball, "rotation_degrees", 0, 360, (path.size() * 0.15), Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
     $Tween.start()
-    $Tween.connect("tween_all_completed", self, "_on_animation_end", [ball, path[path.size() -1]])
+    yield($Tween, "tween_all_completed")
 
-
-func _on_animation_end(ball, pos):
-    _check_score(ball, pos, true)
-    $Tween.disconnect("tween_all_completed", self, "_on_animation_end")
-    pass
-
-
-# TODO: Move this to another script like PathFinder
-func _check_score(ball, pos, animate_next):
-    var color = ball.color
-
-    # These variable store the ball rows, in order.
-    var row = []
-    var column = []
-    var top_bottom = []
-    var bottom_top = []
-
-    # These variables finds the start of the diagonal rows to check
-    var top_bottom_start
-    var bottom_top_start
-    if (pos.x > pos.y):
-        top_bottom_start = Vector2(pos.x - pos.y, 0)
-    else :
-        top_bottom_start = Vector2(0, pos.y - pos.x)
-
-    if (pos.x + pos.y < 9):
-        bottom_top_start = Vector2(0, pos.x + pos.y)
-    else:
-        bottom_top_start = Vector2((pos.x + pos.y - 8), (pos.x + pos.y) - ((pos.x + pos.y) - 8))
-
-    for i in GRID_NUMBER:
-        row.append(Vector2(i, pos.y))
-        column.append(Vector2(pos.x, i))
-        if (top_bottom_start.x + i < 9 && top_bottom_start.y + i < 9):
-            top_bottom.append(Vector2(top_bottom_start.x + i, top_bottom_start.y + i))
-        if (bottom_top_start.x + i < 9 && bottom_top_start.y - i >= 0):
-            bottom_top.append(Vector2(bottom_top_start.x + i, bottom_top_start.y - i))
-
-    var result = []
-    result = result + _check_row_for_score(row, color)
-    result = result + _check_row_for_score(column, color)
-    result = result + _check_row_for_score(top_bottom, color)
-    result = result + _check_row_for_score(bottom_top, color)
-
-    if (ball in result):
-        while (ball in result):
-            result.erase(ball) #Ball can be duplicated, so erase them, and add.
-        result.append(ball)
-
-    if (animate_next && result.size() == 0):
-        _animate_new_ball()
-    else:
+    _gl.move_ball(path[0], path[path.size() -1])
+    var result = _gl.check_score(ball, path[path.size() -1]) # TODO: Use signal to put this to _move_selected_ball()
+    if (result.size() > 0):
         _animate_clear(result)
-
-
-func _check_row_for_score(row, color):
-    var lines = []
-    var last_color_index = -1
-    var first_color_index = -1
-    for i in row.size():
-        var ball = _ball_grid[row[i].x][row[i].y]
-        if ball != null && ball.color == color:
-            last_color_index = i
-            if first_color_index == -1:
-                first_color_index = i
-
-            if last_color_index - first_color_index == 4:
-                lines = [row[i], row[i-1], row[i-2], row[i-3], row[i-4]]
-            elif last_color_index - first_color_index > 4:
-                lines.append(row[i])
-        else:
-            first_color_index = -1
-            last_color_index = -1
-    return lines
+    else:
+        _animate_new_ball()
 
 
 func _animate_clear(result):
     for ball_pos in result:
-        var ball = _ball_grid[ball_pos.x][ball_pos.y]
+        var ball = _gl.get_ball(ball_pos)
         $Tween.interpolate_property(ball, "scale:x", 1, 0, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
         $Tween.interpolate_property(ball, "scale:y", 1, 0, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
     $Tween.start()
 
     yield($Tween, "tween_all_completed")
     for ball_pos in result:
-        var ball = _ball_grid[ball_pos.x][ball_pos.y]
-        if (ball != null):
-            _ball_grid[ball_pos.x][ball_pos.y] = null
-            ball.queue_free()
-            _gl.set_position_disabled(ball_pos.x, ball_pos.y, false)
+        _gl.remove_ball(ball_pos)
+
     _moving = false
 
 func _animate_new_ball():
@@ -231,7 +147,7 @@ func _animate_new_ball():
         var pos = key
         var ball = _next_ball[key]
 
-        while (_ball_grid[pos.x][pos.y] != null):
+        while (_gl.has_ball(pos)):
             var x = _rng.randi_range(0,8)
             var y = _rng.randi_range(0,8)
             pos = Vector2(x,y)
@@ -241,9 +157,8 @@ func _animate_new_ball():
                 pos = Vector2(x,y)
 
         ball.position = _calculate_center_position(pos.x, pos.y)
-        _ball_grid[pos.x][pos.y] = ball
+        _gl.put_ball(pos, ball)
         new_pos.append(pos)
-        _gl.set_position_disabled(pos.x, pos.y, true)
         $Tween.interpolate_property(ball, "scale:x", .5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
         $Tween.interpolate_property(ball, "scale:y", .5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
 
@@ -251,9 +166,10 @@ func _animate_new_ball():
     yield($Tween, "tween_all_completed")
 
     for pos in new_pos:
-        var ball = _ball_grid[pos.x][pos.y]
+        var ball = _gl.get_ball(pos)
         if (ball != null): #Can be null since two new ball can clear same row
-            _check_score(ball, pos, false)
+            var result = _gl.check_score(ball, pos)
+            _animate_clear(result)
     _moving = false
     _get_next_balls()
 
