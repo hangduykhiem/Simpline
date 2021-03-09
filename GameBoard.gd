@@ -56,7 +56,7 @@ func _init_ball_array():
 
 
 func _init_balls():
-    for _i in range(20):
+    for _i in range(7):
         var x = _rng.randi_range(0,8)
         var y = _rng.randi_range(0,8)
 
@@ -86,7 +86,7 @@ func _get_next_balls():
         var x = _rng.randi_range(0,8)
         var y = _rng.randi_range(0,8)
 
-        while _ball_grid[x][y] != null && !(Vector2(x,y) in _next_ball.keys()):
+        while _ball_grid[x][y] != null || (Vector2(x,y) in _next_ball.keys()):
             x = _rng.randi_range(0,8)
             y = _rng.randi_range(0,8)
 
@@ -235,6 +235,10 @@ func _animate_new_ball():
             var x = _rng.randi_range(0,8)
             var y = _rng.randi_range(0,8)
             pos = Vector2(x,y)
+            while (pos in _next_ball.keys()):
+                x = _rng.randi_range(0,8)
+                y = _rng.randi_range(0,8)
+                pos = Vector2(x,y)
 
         ball.position = _calculate_center_position(pos.x, pos.y)
         _ball_grid[pos.x][pos.y] = ball
