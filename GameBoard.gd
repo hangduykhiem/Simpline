@@ -3,8 +3,8 @@ extends Node2D
 var CELL_SIDE = 60
 var GRID_NUMBER = 9
 var LINE_LENGTH = CELL_SIDE * GRID_NUMBER
-var MARGIN_VERTICAL = (600 - LINE_LENGTH) / 2 # Screen height = 600
-var MARGIN_HORIZONTAL = (1024 - LINE_LENGTH) / 2
+var MARGIN_VERTICAL = (1024 - LINE_LENGTH) / 2 # Screen height = 600
+var MARGIN_HORIZONTAL = (600 - LINE_LENGTH) / 2
 
 
 var GameLogic = load("GameLogic.gd")
@@ -16,14 +16,13 @@ var _gl = GameLogic.new()
 var _moving = false
 var _current_selected_pos
 var _next_ball = {}
-
+var _score = 0
 
 func _ready():
     _rng.randomize()
     _gl.grid_size = GRID_NUMBER
     _gl.generate_grid()
     _init_balls()
-    $Grid.position = Vector2(1024 / 2 , 600 /2 )
 
 
 func _input(event):
@@ -129,10 +128,13 @@ func _animate_movement(path, ball):
 
 
 func _animate_clear(result):
+
     for ball_pos in result:
+        _score += 1
         var ball = _gl.get_ball(ball_pos)
         $Tween.interpolate_property(ball, "scale:x", 1, 0, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
         $Tween.interpolate_property(ball, "scale:y", 1, 0, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+    _update_score()
     $Tween.start()
 
     yield($Tween, "tween_all_completed")
@@ -140,6 +142,10 @@ func _animate_clear(result):
         _gl.remove_ball(ball_pos)
 
     _moving = false
+
+
+func _update_score():
+    $HUD.get_node("Score").text = ("%d" % _score)
 
 func _animate_new_ball():
     var new_pos = []
