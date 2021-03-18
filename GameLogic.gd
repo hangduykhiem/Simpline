@@ -1,12 +1,26 @@
-extends Node
-
-var GRID_NUMBER = 9
-var _astar = AStar2D.new()
 export (int) var grid_size
+signal balls_appear(balls, is_next_ball)
+signal ball_moved(path)
+signal ball_moved_clear(path, lines)
 
+const GRID_NUMBER = 9
+const MAX_BALLS = 81
+const INITIAL_BALL_COUNT = 7
+const NEXT_BALLS_COUNT = 3
+var _astar = AStar2D.new()
+var _rng = RandomNumberGenerator.new()
 var _ball_grid = []
+var _ball_count = 7
+var _next_balls = {}
 
-func generate_grid():
+func init():
+    _rng.randomize()
+    _generate_grid()
+    _generate_initial_balls()
+    _generate_next_balls()
+
+
+func _generate_grid():
     for i in range(grid_size):
         for j in range(grid_size):
             _astar.add_point(i * grid_size + j, Vector2(i,j))
@@ -22,38 +36,64 @@ func generate_grid():
                 _astar.connect_points(current_point, neighbor_bottom)
 
 
-func put_ball(pos, ball):
-    var id = _get_id_from_pos(pos.x, pos.y)
-    if (_ball_grid[id] == null):
-        _ball_grid[id] = ball
-        _astar.set_point_disabled(id, true)
+func _generate_initial_balls():
+    var result = {}
+    for _i in range(INITIAL_BALL_COUNT):
+        var ball = _generate_ball()
+        var id = ball["id"]
+        var color = ball["color"]
+        if (_ball_grid[id] == null):
+            _ball_grid[id] = color
+            result[_get_pos_from_id(id)] = color
+            _astar.set_point_disabled(id, true)
+        else:
+            push_error("position already occupied, wtf")
+    emit_signal("balls_appear", result, false)
+
+
+func _generate_ball():
+    var id = _rng.randi_range(0, MAX_BALLS -1)
+    while (_ball_grid[id] != null):
+        id = _rng.randi_range(0, MAX_BALLS -1)
+    var color = _rng.randi_range(0, 0)
+    return {"id": id, "color": color}
+
+
+func _generate_next_balls():
+    var count
+    if (MAX_BALLS - _ball_count < NEXT_BALLS_COUNT):
+        count = MAX_BALLS - _ball_count
     else:
-        push_error("There is already another ball in that position")
+        count = NEXT_BALLS_COUNT
+
+    while(_next_balls.size() < count):
+        var id = _rng.randi_range(0, MAX_BALLS -1)
+        while _ball_grid[id] != null || _next_balls.has(id):
+            id = _rng.randi_range(0, MAX_BALLS -1)
+        var color = _rng.randi_range(0,6)
+        _next_balls[id] = color
+
+    var result = {}
+    for id in _next_balls.keys():
+        var position = _get_pos_from_id(id)
+        var color = _next_balls[id]
+        result[position] = color
+    emit_signal("balls_appear", result, true)
 
 
-func has_ball(pos):
-    return _ball_grid[_get_id_from_pos(pos.x, pos.y)] != null
-
-
-func move_ball(pos, new_pos):
-    var id = _get_id_from_pos(pos.x, pos.y)
-    var new_id = _get_id_from_pos(new_pos.x, new_pos.y)
-    if (_ball_grid[id] == null):
-        push_error("There is no ball at position:  %s" % pos)
-    if (_ball_grid[new_id] != null):
-        push_error("There is already another ball in that position")
+func move_ball(from_pos, to_pos):
+    var path = find_path(from_pos, to_pos)
+    if (path == null): pass
+    var id = _get_id_from_pos(from_pos.x, from_pos.y)
+    var new_id = _get_id_from_pos(to_pos.x, to_pos.y)
     _ball_grid[new_id] = _ball_grid[id]
     _ball_grid[id] = null
     _astar.set_point_disabled(id, false)
     _astar.set_point_disabled(new_id, true)
 
-
-func remove_ball(pos):
-    var id = _get_id_from_pos(pos.x, pos.y)
-    var ball = _ball_grid[id]
-    _ball_grid[id] = null
-    ball.queue_free()
-    _astar.set_point_disabled(id, false)
+    var lines_matched = _check_score(new_id)
+    if lines_matched != null:
+        emit_signal("ball_moved_clear", path, lines_matched)
 
 
 func get_ball(pos):
@@ -68,8 +108,9 @@ func find_path(from_pos, to_pos):
     return _simplify_astar_path(path)
 
 
-func check_score(ball, pos):
-    var color = ball.color
+func _check_score(id):
+    var color = _ball_grid[id]
+    var pos = _get_pos_from_id(id)
 
     # These variable store the ball rows, in order.
     var row = []
@@ -117,8 +158,8 @@ func _check_row_for_score(row, color):
     var first_color_index = -1
     for i in row.size():
         var id = _get_id_from_pos(row[i].x, row[i].y)
-        var ball = _ball_grid[id]
-        if ball != null && ball.color == color:
+        var ball_color = _ball_grid[id]
+        if ball_color != null && ball_color == color:
             last_color_index = i
             if first_color_index == -1:
                 first_color_index = i
@@ -136,6 +177,11 @@ func _check_row_for_score(row, color):
 func _get_id_from_pos(x, y):
     return x * grid_size + y
 
+
+func _get_pos_from_id(id):
+    var x: int = floor(id / GRID_NUMBER)
+    var y: int = id - (x * GRID_NUMBER)
+    return Vector2(x, y)
 
 func _simplify_astar_path(path):
     var i = 1

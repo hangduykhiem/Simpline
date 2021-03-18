@@ -1,4 +1,13 @@
+##
+# This scene's job is to animate the board, the UI, ball and their appearance /
+# disappearance / movement.
+# Actual game logics, like where ball should appear, are in the GameLogic.gd
+# class.
+##
+
 extends Node2D
+
+signal _ball_movement_anim_complete
 
 var CELL_SIDE = 60
 var GRID_NUMBER = 9
@@ -14,97 +23,40 @@ var _rng = RandomNumberGenerator.new()
 var _gl = GameLogic.new()
 
 var _moving = false
-var _current_selected_pos
-var _next_ball = {}
+var _selected_pos
 var _score = 0
+var _all_balls = {}
+var _next_balls = {}
 
 func _ready():
     _rng.randomize()
     _gl.grid_size = GRID_NUMBER
-    _gl.generate_grid()
-    _init_balls()
+    _gl.connect("balls_appear", self, "_animate_balls_appearing")
+    _gl.connect("ball_moved", self, "_animate_balls_movement")
+    _gl.connect("ball_moved_cleared", self, "_animate_clear_movement")
+    _gl.init()
 
 
 func _input(event):
     if event is InputEventMouseButton && event.pressed && !_moving:
         var pos = _calculate_click_position(event.position)
         if (pos != null):
-            var ball = _gl.get_ball(pos)
+            if (_selected_pos != null):
+                var cur_x = _selected_pos.x
+                var cur_y = _selected_pos.y
+                _all_balls[Vector2(cur_x, cur_y)].toggle_selected()
+                if (!_all_balls.has(pos)):
+                    _gl.move_ball(_selected_pos, pos)
 
-            if (_current_selected_pos != null):
-                var cur_x = _current_selected_pos.x
-                var cur_y = _current_selected_pos.y
-                _gl.get_ball(Vector2(cur_x, cur_y)).toggle_selected()
-                if (ball == null):
-                    _move_selected_ball(Vector2(pos.x, pos.y))
-
-            if (ball != null):
-                ball.toggle_selected()
-                _current_selected_pos = Vector2(pos.x, pos.y)
+            if (_all_balls.has(pos)):
+                _all_balls[pos].toggle_selected()
+                _selected_pos = pos
             else:
-                _current_selected_pos = null
+                _selected_pos = null
 
 
-func _init_balls():
-    for _i in range(7):
-        var x = _rng.randi_range(0,8)
-        var y = _rng.randi_range(0,8)
-
-        while (_gl.has_ball(Vector2(x,y))):
-            x = _rng.randi_range(0,8)
-            y = _rng.randi_range(0,8)
-
-        var color = _rng.randi_range(0,6)
-        var ball = Ball.instance()
-        ball.color = color
-        ball.position = _calculate_center_position(x, y)
-        ball.scale = Vector2(0,0)
-        $Tween.interpolate_property(ball, "scale:x", 0, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-        $Tween.interpolate_property(ball, "scale:y", 0, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-        $Tween.start()
-        add_child(ball)
-        _gl.put_ball(Vector2(x,y), ball)
-    yield($Tween, "tween_all_completed")
-    _get_next_balls()
-
-
-func _get_next_balls():
-    _moving = true
-    _next_ball.clear()
-    while(_next_ball.size() < 3):
-        var x = _rng.randi_range(0,8)
-        var y = _rng.randi_range(0,8)
-
-        while _gl.has_ball(Vector2(x,y)) || _next_ball.has(Vector2(x,y)):
-            x = _rng.randi_range(0,8)
-            y = _rng.randi_range(0,8)
-
-        var color = _rng.randi_range(0,6)
-        var ball = Ball.instance()
-        ball.color = color
-        ball.position = _calculate_center_position(x, y)
-        ball.scale = Vector2(0,0)
-        add_child_below_node($Grid, ball)
-        _next_ball[Vector2(x, y)] = ball
-        $Tween.interpolate_property(ball, "scale:x", 0, .5, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-        $Tween.interpolate_property(ball, "scale:y", 0, .5, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-
-    $Tween.start()
-    yield($Tween, "tween_all_completed")
-    _moving = false
-
-func _move_selected_ball(pos):
-    _moving = true
-    var from_pos = Vector2(_current_selected_pos.x, _current_selected_pos.y)
-    var ball = _gl.get_ball(from_pos)
-    var path = _gl.find_path(from_pos, pos)
-    if (path != null):
-        _animate_movement(path, ball)
-
-    else:
-        _moving = false
-
-func _animate_movement(path, ball):
+func _animate_balls_movement(path):
+    var ball = _all_balls[path[0]]
     var i = 1
     while (i < path.size()):
         var cur_pos = path[i]
@@ -118,20 +70,20 @@ func _animate_movement(path, ball):
     $Tween.interpolate_property(ball, "rotation_degrees", 0, 360, (path.size() * 0.15), Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
     $Tween.start()
     yield($Tween, "tween_all_completed")
+    emit_signal("_ball_movement_anim_complete")
+    _all_balls[path[path.size() -1]] = _all_balls[path[0]]
+    _all_balls.erase(path[0])
 
-    _gl.move_ball(path[0], path[path.size() -1])
-    var result = _gl.check_score(ball, path[path.size() -1]) # TODO: Use signal to put this to _move_selected_ball()
-    if (result.size() > 0):
-        _animate_clear(result)
-    else:
-        _animate_new_ball()
 
+func _animate_clear_movement(path, lines):
+    _animate_balls_movement(path)
+    yield(self, "_ball_movement_anim_complete")
+    _animate_clear(lines)
 
 func _animate_clear(result):
-
     for ball_pos in result:
         _score += 1
-        var ball = _gl.get_ball(ball_pos)
+        var ball = _gl.get_ball[ball_pos]
         $Tween.interpolate_property(ball, "scale:x", 1, 0, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
         $Tween.interpolate_property(ball, "scale:y", 1, 0, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
     _update_score()
@@ -140,44 +92,53 @@ func _animate_clear(result):
     yield($Tween, "tween_all_completed")
     for ball_pos in result:
         _gl.remove_ball(ball_pos)
-
     _moving = false
 
 
 func _update_score():
     $HUD.get_node("Score").text = ("%d" % _score)
 
-func _animate_new_ball():
-    var new_pos = []
-    for key in _next_ball.keys():
-        var pos = key
-        var ball = _next_ball[key]
 
-        while (_gl.has_ball(pos)):
-            var x = _rng.randi_range(0,8)
-            var y = _rng.randi_range(0,8)
-            pos = Vector2(x,y)
-            while (pos in _next_ball.keys()):
-                x = _rng.randi_range(0,8)
-                y = _rng.randi_range(0,8)
-                pos = Vector2(x,y)
-
+func _animate_balls_appearing(balls: Dictionary, next_ball: bool) -> void:
+    for pos in balls.keys():
+        var ball = Ball.instance()
+        ball.color = balls[pos]
         ball.position = _calculate_center_position(pos.x, pos.y)
-        _gl.put_ball(pos, ball)
-        new_pos.append(pos)
-        $Tween.interpolate_property(ball, "scale:x", .5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
-        $Tween.interpolate_property(ball, "scale:y", .5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+        ball.scale = Vector2(0,0)
+
+        var new_scale := 0.0
+        if (next_ball):
+            new_scale = 0.5
+            _next_balls[pos] = ball
+        else:
+            new_scale = 1
+            _all_balls[pos] = ball
+
+        add_child_below_node($Grid, ball)
+
+
+        $Tween.interpolate_property(ball, "scale:x", 0, new_scale, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+        $Tween.interpolate_property(ball, "scale:y", 0, new_scale, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
 
     $Tween.start()
-    yield($Tween, "tween_all_completed")
 
-    for pos in new_pos:
-        var ball = _gl.get_ball(pos)
-        if (ball != null): #Can be null since two new ball can clear same row
-            var result = _gl.check_score(ball, pos)
-            _animate_clear(result)
-    _moving = false
-    _get_next_balls()
+##
+# old_pos and new_pos arguments are only used in the case when one next_ball has
+# been overlapped by a movement. In other cases, next_balls should just appear.
+##
+func _animate_next_balls_appearing(old_pos, new_pos):
+    if _next_balls.has(old_pos):
+        var ball = _next_balls[old_pos]
+        ball.position = _calculate_center_position(new_pos.x, new_pos.y)
+        $Tween.interpolate_property(ball, "scale:x", 0, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+        $Tween.interpolate_property(ball, "scale:y", 0, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+        _next_balls.erase(old_pos)
+
+    for pos in _next_balls.keys():
+        var ball = _next_balls[pos]
+        $Tween.interpolate_property(ball, "scale:x", 0.5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+        $Tween.interpolate_property(ball, "scale:y", 0.5, 1, .5, Tween.TRANS_CUBIC, Tween.EASE_IN_OUT, 0)
+    $Tween.start()
 
 
 func _calculate_center_position(x, y):
