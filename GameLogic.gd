@@ -1,23 +1,31 @@
+extends Node2D
+
 export (int) var grid_size
 signal balls_appear(balls, is_next_ball)
+signal next_balls_growth(previous_pos, replacement_pos)
 signal ball_moved(path)
-signal ball_moved_clear(path, lines)
+signal lines_matched(lines)
+signal movement_ended(score)
+signal game_over()
 
 const GRID_NUMBER = 9
 const MAX_BALLS = 81
-const INITIAL_BALL_COUNT = 7
+const INITIAL_BALL_COUNT = 20
 const NEXT_BALLS_COUNT = 3
 var _astar = AStar2D.new()
 var _rng = RandomNumberGenerator.new()
 var _ball_grid = []
 var _ball_count = 7
 var _next_balls = {}
+var _score = 0
 
 func init():
     _rng.randomize()
+    _ball_count = INITIAL_BALL_COUNT
     _generate_grid()
     _generate_initial_balls()
     _generate_next_balls()
+    emit_signal("movement_ended", _score)
 
 
 func _generate_grid():
@@ -52,10 +60,10 @@ func _generate_initial_balls():
 
 
 func _generate_ball():
-    var id = _rng.randi_range(0, MAX_BALLS -1)
+    var id = _rng.randi_range(0, MAX_BALLS - 1)
     while (_ball_grid[id] != null):
-        id = _rng.randi_range(0, MAX_BALLS -1)
-    var color = _rng.randi_range(0, 0)
+        id = _rng.randi_range(0, MAX_BALLS - 1)
+    var color = _rng.randi_range(0, 6)
     return {"id": id, "color": color}
 
 
@@ -68,36 +76,104 @@ func _generate_next_balls():
 
     while(_next_balls.size() < count):
         var id = _rng.randi_range(0, MAX_BALLS -1)
-        while _ball_grid[id] != null || _next_balls.has(id):
+        while _ball_grid[id] != null || _next_balls.keys().has(id):
             id = _rng.randi_range(0, MAX_BALLS -1)
-        var color = _rng.randi_range(0,6)
+        var color = _rng.randi_range(0, 6)
         _next_balls[id] = color
 
     var result = {}
+
     for id in _next_balls.keys():
         var position = _get_pos_from_id(id)
-        var color = _next_balls[id]
+        var color = _next_balls.get(id)
         result[position] = color
+
     emit_signal("balls_appear", result, true)
 
 
 func move_ball(from_pos, to_pos):
     var path = find_path(from_pos, to_pos)
-    if (path == null): pass
-    var id = _get_id_from_pos(from_pos.x, from_pos.y)
-    var new_id = _get_id_from_pos(to_pos.x, to_pos.y)
-    _ball_grid[new_id] = _ball_grid[id]
-    _ball_grid[id] = null
-    _astar.set_point_disabled(id, false)
-    _astar.set_point_disabled(new_id, true)
 
-    var lines_matched = _check_score(new_id)
-    if lines_matched != null:
-        emit_signal("ball_moved_clear", path, lines_matched)
+    if (path == null):
+        emit_signal("movement_ended", _score)
+        return
+
+    var from_id = _get_id_from_pos(from_pos.x, from_pos.y)
+    var to_id = _get_id_from_pos(to_pos.x, to_pos.y)
+    _ball_grid[to_id] = _ball_grid[from_id]
+    _ball_grid[from_id] = null
+    _astar.set_point_disabled(from_id, false)
+    _astar.set_point_disabled(to_id, true)
+    emit_signal("ball_moved", path)
+    var lines_matched = _check_score(to_id)
+
+    if lines_matched.size() > 0:
+        _handle_line_matched(lines_matched)
+        emit_signal("movement_ended", _score)
+        return
+
+    var id_to_replace
+    for _next_ball_id in _next_balls.keys():
+        if _next_ball_id == to_id:
+            id_to_replace = _next_ball_id
+
+    if id_to_replace != null:
+        var replacement_id = _get_next_ball_replacement_id()
+        _next_balls[replacement_id] = _next_balls.get(id_to_replace)
+        _next_balls.erase(id_to_replace)
+        var previous_pos = _get_pos_from_id(id_to_replace)
+        var replacement_pos = _get_pos_from_id(replacement_id)
+        emit_signal("next_balls_growth", previous_pos, replacement_pos)
+    else:
+        emit_signal("next_balls_growth", null, null)
 
 
-func get_ball(pos):
-    return _ball_grid[_get_id_from_pos(pos.x, pos.y)]
+    var debug = []
+    for _next_pos in _next_balls.keys():
+        debug.append({_get_pos_from_id(_next_pos): _next_balls.get(_next_pos)} )
+    for next_ball_id in _next_balls.keys():
+        if _next_balls.get(next_ball_id) != null:
+            _astar.set_point_disabled(next_ball_id, true)
+            _ball_grid[next_ball_id] = _next_balls.get(next_ball_id)
+            _ball_count += 1
+            lines_matched = _check_score(next_ball_id)
+            if (lines_matched.size() > 0):
+                _handle_line_matched(lines_matched)
+
+
+    _next_balls.clear()
+    _generate_next_balls()
+
+    emit_signal("movement_ended", _score)
+
+    if (_ball_count == MAX_BALLS):
+        emit_signal("game_over")
+    if (_ball_count != _true_ball_count()):
+        push_error("wtf")
+
+func _true_ball_count():
+    var count = 0
+    for ball in _ball_grid:
+        if ball != null:
+            count +=1
+    return count
+
+
+func _handle_line_matched(lines):
+    emit_signal("lines_matched", lines)
+    for pos in lines:
+        var id = _get_id_from_pos(pos.x, pos.y)
+        _astar.set_point_disabled(id, false)
+        _ball_grid[id] = null
+        _score += 1
+        _ball_count -= 1
+
+
+func _get_next_ball_replacement_id():
+    var id = _rng.randi_range(0, MAX_BALLS -1)
+    while _ball_grid[id] != null || _next_balls.keys().has(id):
+        id = _rng.randi_range(0, MAX_BALLS -1)
+    return id
 
 
 func find_path(from_pos, to_pos):
@@ -177,7 +253,6 @@ func _check_row_for_score(row, color):
 func _get_id_from_pos(x, y):
     return x * grid_size + y
 
-
 func _get_pos_from_id(id):
     var x: int = floor(id / GRID_NUMBER)
     var y: int = id - (x * GRID_NUMBER)
@@ -205,3 +280,9 @@ func _simplify_astar_path(path):
 
     result.append(path[path.size() -1])
     return result
+
+
+func print_all_pos():
+    for i in range(0, MAX_BALLS -1):
+        if (_ball_grid[i] != null):
+            print(_get_pos_from_id(i), ": exist")
